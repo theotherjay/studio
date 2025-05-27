@@ -26,6 +26,7 @@ const GameCanvas: React.FC = () => {
   const [keysPressed, setKeysPressed] = useState<KeysPressed>({});
   const [cameraPosition, setCameraPosition] = useState<Vector2D>({ x: 0, y: 0 });
   
+  const lastTimeRef = useRef(0);
   const gameAreaRef = useRef<HTMLDivElement>(null);
 
   const checkCollision = useCallback((rect1: GameObject, rect2: GameObject): boolean => {
@@ -124,56 +125,76 @@ const GameCanvas: React.FC = () => {
 
   // Game loop for movement and camera
   useEffect(() => {
-    if (!player) return;
+    const gameLoop = (time: number) => {
+      if (!player) return;
 
-    let dx = 0;
-    let dy = 0;
+      const deltaTime = (time - lastTimeRef.current) / 1000; // Convert to seconds
+      lastTimeRef.current = time;
 
-    if (keysPressed['w'] || keysPressed['arrowup']) dy -= PLAYER_SPEED;
-    if (keysPressed['s'] || keysPressed['arrowdown']) dy += PLAYER_SPEED;
-    if (keysPressed['a'] || keysPressed['arrowleft']) dx -= PLAYER_SPEED;
-    if (keysPressed['d'] || keysPressed['arrowright']) dx += PLAYER_SPEED;
+      let moveX = 0;
+      let moveY = 0;
 
-    if (dx === 0 && dy === 0) return;
+      if (keysPressed['w'] || keysPressed['arrowup']) moveY -= PLAYER_SPEED * deltaTime;
+      if (keysPressed['s'] || keysPressed['arrowdown']) moveY += PLAYER_SPEED * deltaTime;
+      if (keysPressed['a'] || keysPressed['arrowleft']) moveX -= PLAYER_SPEED * deltaTime;
+      if (keysPressed['d'] || keysPressed['arrowright']) moveX += PLAYER_SPEED * deltaTime;
 
-    const newPlayerPosition = { ...player.position };
+      if (moveX === 0 && moveY === 0) {
+        requestRef.current = requestAnimationFrame(gameLoop);
+        return;
+      }
+
+      const newPlayerPosition = { ...player.position };
 
     // Try moving X
-    const tempPlayerX: Player = { ...player, position: { x: player.position.x + dx, y: player.position.y } };
+      const tempPlayerX: Player = { ...player, position: { x: player.position.x + moveX, y: player.position.y } };
+      
     let canMoveX = true;
-    if (tempPlayerX.position.x < 0 || tempPlayerX.position.x + tempPlayerX.size.width > worldSize.width) {
-      canMoveX = false;
-    } else {
+      if (tempPlayerX.position.x >= 0 && tempPlayerX.position.x + tempPlayerX.size.width <= worldSize.width) {
       for (const tree of trees) {
         if (checkCollision(tempPlayerX, tree)) {
           canMoveX = false;
           break;
         }
       }
+      } else {
+        canMoveX = false;
     }
     if (canMoveX) {
-      newPlayerPosition.x += dx;
+        newPlayerPosition.x += moveX;
     }
 
     // Try moving Y
-    const tempPlayerY: Player = { ...player, position: { x: newPlayerPosition.x, y: player.position.y + dy } }; // Use potentially updated X for Y check
+      const tempPlayerY: Player = { ...player, position: { x: newPlayerPosition.x, y: player.position.y + moveY } }; // Use potentially updated X for Y check
     let canMoveY = true;
-    if (tempPlayerY.position.y < 0 || tempPlayerY.position.y + tempPlayerY.size.height > worldSize.height) {
-      canMoveY = false;
-    } else {
+      if (tempPlayerY.position.y >= 0 && tempPlayerY.position.y + tempPlayerY.size.height <= worldSize.height) {
       for (const tree of trees) {
         if (checkCollision(tempPlayerY, tree)) {
           canMoveY = false;
           break;
         }
       }
+      } else {
+        canMoveY = false;
     }
     if (canMoveY) {
-      newPlayerPosition.y += dy;
+        newPlayerPosition.y += moveY;
     }
-    
-    setPlayer((p) => p ? { ...p, position: newPlayerPosition } : null);
+      
+      setPlayer((p) => p ? { ...p, position: newPlayerPosition } : null);
 
+      requestRef.current = requestAnimationFrame(gameLoop);
+    };
+
+    const requestRef = useRef<number>();
+    lastTimeRef.current = performance.now(); // Initialize lastTime
+    requestRef.current = requestAnimationFrame(gameLoop);
+
+    return () => {
+      if (requestRef.current) {
+        cancelAnimationFrame(requestRef.current);
+      }
+    };
   }, [keysPressed, player, trees, worldSize, checkCollision]);
 
   // Update camera position

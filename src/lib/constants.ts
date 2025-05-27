@@ -5,6 +5,7 @@ export const INITIAL_VIEWPORT_HEIGHT = 600;
 // Player
 export const PLAYER_SIZE_FACTOR = 50; // Player size is 1/50th of viewport
 export const PLAYER_SPEED = 4; // Pixels per frame/update
+export const PLAYER_SPEED = 15; // Pixels per second
 
 // World
 export const WORLD_SCALE_FACTOR = 10; // World is 10x viewport size
