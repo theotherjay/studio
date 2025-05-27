@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Player, Tree, Vector2D, Size2D, KeysPressed, GameObject } from '@/lib/types';
@@ -28,7 +29,7 @@ const GameCanvas: React.FC = () => {
   
   const lastTimeRef = useRef(0);
   const gameAreaRef = useRef<HTMLDivElement>(null);
-  const requestRef = useRef<number>(); // Correct declaration at the top level
+  const requestRef = useRef<number>();
 
   const checkCollision = useCallback((rect1: GameObject, rect2: GameObject): boolean => {
     // Add a small buffer to collision to make it feel less sticky
@@ -43,7 +44,6 @@ const GameCanvas: React.FC = () => {
 
   // Initialize game
   useEffect(() => {
-    // For simplicity, using fixed viewport size. Could be made responsive.
     const currentViewportSize = { width: INITIAL_VIEWPORT_WIDTH, height: INITIAL_VIEWPORT_HEIGHT };
     setViewportSize(currentViewportSize);
 
@@ -88,12 +88,10 @@ const GameCanvas: React.FC = () => {
         };
         newTree = { id: `tree-${i}`, position: pos, size: treeSize };
 
-        // Check collision with player start
         if (checkCollision(newTree, initialPlayer)) {
           collisionWithOtherTreeOrPlayer = true;
           continue;
         }
-        // Check collision with already generated trees
         for (const existingTree of generatedTrees) {
           if (checkCollision(newTree, existingTree)) {
             collisionWithOtherTreeOrPlayer = true;
@@ -127,10 +125,25 @@ const GameCanvas: React.FC = () => {
   // Game loop for movement and camera
   useEffect(() => {
     const gameLoop = (time: number) => {
-      if (!player) return;
+      const currentTime = time;
 
-      const deltaTime = (time - lastTimeRef.current) / 1000; // Convert to seconds
-      lastTimeRef.current = time;
+      if (!player) {
+        lastTimeRef.current = currentTime; // Keep time updated even if player is not ready
+        requestRef.current = requestAnimationFrame(gameLoop);
+        return;
+      }
+
+      const elapsedMilliseconds = currentTime - lastTimeRef.current;
+      lastTimeRef.current = currentTime; // Update lastTime for the next frame
+
+      // If time hasn't advanced or went backward (e.g., tab suspended), skip game logic for this frame.
+      // This also handles the very first frame if lastTimeRef.current was 0 and currentTime is also 0 (though unlikely).
+      if (elapsedMilliseconds <= 0) {
+        requestRef.current = requestAnimationFrame(gameLoop);
+        return;
+      }
+      
+      const deltaTime = elapsedMilliseconds / 1000; // Convert to seconds
 
       let moveX = 0;
       let moveY = 0;
@@ -147,47 +160,48 @@ const GameCanvas: React.FC = () => {
 
       const newPlayerPosition = { ...player.position };
 
-    // Try moving X
       const tempPlayerX: Player = { ...player, position: { x: player.position.x + moveX, y: player.position.y } };
       
-    let canMoveX = true;
+      let canMoveX = true;
       if (tempPlayerX.position.x >= 0 && tempPlayerX.position.x + tempPlayerX.size.width <= worldSize.width) {
-      for (const tree of trees) {
-        if (checkCollision(tempPlayerX, tree)) {
-          canMoveX = false;
-          break;
+        for (const tree of trees) {
+          if (checkCollision(tempPlayerX, tree)) {
+            canMoveX = false;
+            break;
+          }
         }
-      }
       } else {
         canMoveX = false;
-    }
-    if (canMoveX) {
-        newPlayerPosition.x += moveX;
-    }
-
-    // Try moving Y
-      const tempPlayerY: Player = { ...player, position: { x: newPlayerPosition.x, y: player.position.y + moveY } }; // Use potentially updated X for Y check
-    let canMoveY = true;
-      if (tempPlayerY.position.y >= 0 && tempPlayerY.position.y + tempPlayerY.size.height <= worldSize.height) {
-      for (const tree of trees) {
-        if (checkCollision(tempPlayerY, tree)) {
-          canMoveY = false;
-          break;
-        }
       }
+      if (canMoveX) {
+        newPlayerPosition.x += moveX;
+      }
+
+      const tempPlayerY: Player = { ...player, position: { x: newPlayerPosition.x, y: player.position.y + moveY } };
+      let canMoveY = true;
+      if (tempPlayerY.position.y >= 0 && tempPlayerY.position.y + tempPlayerY.size.height <= worldSize.height) {
+        for (const tree of trees) {
+          if (checkCollision(tempPlayerY, tree)) {
+            canMoveY = false;
+            break;
+          }
+        }
       } else {
         canMoveY = false;
-    }
-    if (canMoveY) {
+      }
+      if (canMoveY) {
         newPlayerPosition.y += moveY;
-    }
+      }
       
       setPlayer((p) => p ? { ...p, position: newPlayerPosition } : null);
 
       requestRef.current = requestAnimationFrame(gameLoop);
     };
 
-    lastTimeRef.current = performance.now(); // Initialize lastTime
+    // Initialize lastTime before starting the loop.
+    // Using performance.now() for the first lastTimeRef is fine, 
+    // as rAF timestamps are compatible.
+    lastTimeRef.current = performance.now(); 
     requestRef.current = requestAnimationFrame(gameLoop);
 
     return () => {
@@ -195,7 +209,7 @@ const GameCanvas: React.FC = () => {
         cancelAnimationFrame(requestRef.current);
       }
     };
-  }, [keysPressed, player, trees, worldSize, checkCollision]);
+  }, [keysPressed, player, trees, worldSize, checkCollision]); // Added player to dependencies
 
   // Update camera position
   useEffect(() => {
@@ -228,34 +242,31 @@ const GameCanvas: React.FC = () => {
         height: viewportSize.height,
       }}
       className="overflow-hidden relative border-4 border-primary rounded-xl shadow-2xl bg-background focus:outline-none"
-      tabIndex={0} // Make it focusable for keyboard events, though global listeners are used
+      tabIndex={0}
     >
-      {/* Parallax Background Layer */}
       <div
         className="absolute top-0 left-0"
         style={{
           width: parallaxBgSize.width,
           height: parallaxBgSize.height,
-          backgroundImage: `url(https://placehold.co/${Math.round(parallaxBgSize.width)}x${Math.round(parallaxBgSize.height)}/286B2B/F5F5DC.png?text=)`, // Darker green, beige text (transparent effectively)
-          backgroundRepeat: 'repeat', // If the placeholder is small, repeat it
+          backgroundImage: `url(https://placehold.co/${Math.round(parallaxBgSize.width)}x${Math.round(parallaxBgSize.height)}/286B2B/F5F5DC.png?text=)`,
+          backgroundRepeat: 'repeat',
           transform: `translate(-${cameraPosition.x * PARALLAX_SPEED_FACTOR}px, -${cameraPosition.y * PARALLAX_SPEED_FACTOR}px)`,
           zIndex: 0,
         }}
         data-ai-hint="forest pattern"
       />
 
-      {/* Game World Layer (Ground) */}
       <div
         style={{
           width: worldSize.width,
           height: worldSize.height,
-          backgroundColor: 'hsl(var(--background))', // Soft Beige ground
+          backgroundColor: 'hsl(var(--background))',
           transform: `translate(-${cameraPosition.x}px, -${cameraPosition.y}px)`,
           position: 'relative',
           zIndex: 1,
         }}
       >
-        {/* Player */}
         <div
           style={{
             position: 'absolute',
@@ -263,7 +274,7 @@ const GameCanvas: React.FC = () => {
             top: player.position.y,
             width: player.size.width,
             height: player.size.height,
-            backgroundColor: 'hsl(var(--primary))', // Forest Green
+            backgroundColor: 'hsl(var(--primary))',
             borderRadius: '25%',
             boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
             zIndex: 10,
@@ -271,7 +282,6 @@ const GameCanvas: React.FC = () => {
           aria-label="Player"
         />
 
-        {/* Trees */}
         {trees.map((tree) => (
           <div
             key={tree.id}
@@ -281,12 +291,12 @@ const GameCanvas: React.FC = () => {
               top: tree.position.y,
               width: tree.size.width,
               height: tree.size.height,
-              zIndex: 5 + Math.round(tree.position.y /100), // simple depth effect
+              zIndex: 5 + Math.round(tree.position.y /100), 
             }}
             aria-label="Tree obstacle"
           >
             <TreePine
-              color="hsl(var(--accent))" // Warm Earthy Brown
+              color="hsl(var(--accent))" 
               absoluteStrokeWidth
               strokeWidth={1.5}
               width="100%"
