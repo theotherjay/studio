@@ -2,6 +2,7 @@
 "use client";
 
 import type { Player, Tree, Vector2D, Size2D, KeysPressed, GameObject } from '@/lib/types';
+import PlayerComponent from './Player';
 import { TreePine } from 'lucide-react';
 import Image from 'next/image';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -267,20 +268,7 @@ const GameCanvas: React.FC = () => {
           zIndex: 1,
         }}
       >
-        <div
-          style={{
-            position: 'absolute',
-            left: player.position.x,
-            top: player.position.y,
-            width: player.size.width,
-            height: player.size.height,
-            backgroundColor: 'hsl(var(--primary))',
-            borderRadius: '25%',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-            zIndex: 10,
-          }}
-          aria-label="Player"
-        />
+        {player && <PlayerComponent player={player} />}
 
         {trees.map((tree) => (
           <div
