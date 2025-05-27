@@ -28,6 +28,7 @@ const GameCanvas: React.FC = () => {
   
   const lastTimeRef = useRef(0);
   const gameAreaRef = useRef<HTMLDivElement>(null);
+  const requestRef = useRef<number>(); // Correct declaration at the top level
 
   const checkCollision = useCallback((rect1: GameObject, rect2: GameObject): boolean => {
     // Add a small buffer to collision to make it feel less sticky
@@ -186,7 +187,6 @@ const GameCanvas: React.FC = () => {
       requestRef.current = requestAnimationFrame(gameLoop);
     };
 
-    const requestRef = useRef<number>();
     lastTimeRef.current = performance.now(); // Initialize lastTime
     requestRef.current = requestAnimationFrame(gameLoop);
 
